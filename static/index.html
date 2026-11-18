@@ -57,18 +57,26 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <template x-for="bundle in bundles" :key="bundle.id">
                     <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition">
-                        <div class="p-6">
-                            <span class="text-xs font-semibold px-3 py-1 bg-slate-100 text-slate-600 rounded-full" x-text="bundle.category"></span>
-                            <h3 class="text-xl font-bold text-slate-900 mt-4" x-text="bundle.title"></h3>
-                            <p class="text-slate-600 text-sm mt-2" x-text="bundle.tagline"></p>
-                            <div class="mt-6 pt-6 border-t border-slate-100 flex items-center justify-between">
-                                <span class="text-xs font-bold uppercase text-slate-400 tracking-wider"><span x-text="bundle.items.length"></span> Essential Items</span>
-                                <span class="text-2xl font-black text-slate-900">£<span x-text="bundle.bundle_price.toFixed(2)"></span></span>
+                        <div>
+                            <!-- Bundle Header Image -->
+                            <div x-show="bundle.image_url" class="h-48 bg-slate-100 overflow-hidden border-b border-slate-100">
+                                <img :src="bundle.image_url" :alt="bundle.title" class="w-full h-full object-cover">
+                            </div>
+                            <div class="p-6">
+                                <span class="text-xs font-semibold px-3 py-1 bg-slate-100 text-slate-600 rounded-full" x-text="bundle.category"></span>
+                                <h3 class="text-xl font-bold text-slate-900 mt-4" x-text="bundle.title"></h3>
+                                <p class="text-slate-600 text-sm mt-2" x-text="bundle.tagline"></p>
                             </div>
                         </div>
-                        <div class="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                            <button @click="openBundleModal(bundle)" class="flex-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 py-3 rounded-xl font-semibold text-sm transition">View Details</button>
-                            <button @click="addBundleToCart(bundle)" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-semibold text-sm transition shadow-sm">Add to Cart</button>
+                        <div class="p-6 bg-slate-50 border-t border-slate-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-xs font-bold uppercase text-slate-400 tracking-wider"><span x-text="bundle.items ? bundle.items.length : 0"></span> Essential Items</span>
+                                <span class="text-2xl font-black text-slate-900">£<span x-text="bundle.bundle_price.toFixed(2)"></span></span>
+                            </div>
+                            <div class="flex gap-3">
+                                <button @click="openBundleModal(bundle)" class="flex-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 py-3 rounded-xl font-semibold text-sm transition">View Details</button>
+                                <button @click="addBundleToCart(bundle)" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-semibold text-sm transition shadow-sm">Add to Cart</button>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -170,8 +178,7 @@
     </main>
 
     <!-- ================= BUNDLE DETAILS MODAL ================= -->
-    <!-- Bundle Details Modal -->
-    <div x-show="selectedBundle" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div x-show="selectedBundle" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" style="display: none;">
         <div @click.outside="selectedBundle = null" class="bg-white rounded-3xl max-w-xl w-full p-8 shadow-2xl relative">
             <button @click="selectedBundle = null" class="absolute top-6 right-6 text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
 
@@ -184,9 +191,12 @@
                 <div class="space-y-3 max-h-64 overflow-y-auto pr-1">
                     <template x-for="item in selectedBundle?.items" :key="item.id">
                         <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <div>
-                                <p class="font-bold text-sm text-slate-900" x-text="item.name"></p>
-                                <p class="text-xs text-slate-500" x-text="item.description"></p>
+                            <div class="flex items-center gap-3">
+                                <img x-show="item.image_url" :src="item.image_url" :alt="item.name" class="w-12 h-12 rounded-lg object-cover border border-slate-200">
+                                <div>
+                                    <p class="font-bold text-sm text-slate-900" x-text="item.name"></p>
+                                    <p class="text-xs text-slate-500" x-text="item.description"></p>
+                                </div>
                             </div>
                             <span class="font-bold text-sm text-amber-600">£<span x-text="item.individual_price.toFixed(2)"></span></span>
                         </div>
@@ -207,7 +217,7 @@
     </div>
     
     <!-- ================= CART DRAWER ================= -->
-    <div x-show="cartOpen" class="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-sm" x-transition.opacity>
+    <div x-show="cartOpen" class="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-sm" x-transition.opacity style="display: none;">
         <div class="bg-white w-full max-w-md h-full p-6 flex flex-col justify-between shadow-2xl" x-transition>
             <div>
                 <div class="flex items-center justify-between pb-6 border-b border-slate-200">
@@ -268,84 +278,84 @@
                 ],
 
                 async init() {
-    // 1. Fetch Ready-Made Combos from PostgreSQL
-    try {
-        const res = await fetch('/api/v1/bundles');
-        if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-                this.bundles = data;
-            }
-        }
-    } catch (e) {
-        console.error('Failed to load bundles:', e);
-    }
+                    // 1. Fetch Ready-Made Combos from PostgreSQL
+                    try {
+                        const res = await fetch('/api/v1/bundles');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (Array.isArray(data) && data.length > 0) {
+                                this.bundles = data;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to load bundles:', e);
+                    }
 
-    // Fallback combos if database is empty
-    if (this.bundles.length === 0) {
-        this.bundles = [
-            {
-                id: 'b1',
-                title: '7 Must Have Essentials',
-                category: 'Emergency Preparedness Kits',
-                tagline: 'Immediate 72-hour evacuation & survival basics.',
-                bundle_price: 49.99,
-                items: [
-                    {id:'i1', name:'Trauma First Aid Kit', description:'Compact CE-certified field medical pouch', individual_price:15.00},
-                    {id:'i2', name:'Collapsible Water Container', description:'10L BPA-free heavy-duty jerry can', individual_price:12.50}
-                ]
-            },
-            {
-                id: 'b2',
-                title: '12 The Necessary Home Kit',
-                category: 'Home Safety Kits',
-                tagline: 'Robust shelter-in-place resilience for utility and power outages.',
-                bundle_price: 99.99,
-                items: [
-                    {id:'i3', name:'Solar Power Bank 20000mAh', description:'Waterproof dual-USB rugged charger', individual_price:39.99},
-                    {id:'i4', name:'Emergency Food Rations', description:'3600kcal long-life high energy bars', individual_price:8.50}
-                ]
-            },
-            {
-                id: 'b3',
-                title: '19 I Am Ready Family Pack',
-                category: 'Family Essentials',
-                tagline: 'Comprehensive multi-week defense and household survival configuration.',
-                bundle_price: 179.99,
-                items: [
-                    {id:'i5', name:'LED Rechargeable Headlamp', description:'Multi-mode hands-free head torch', individual_price:14.99},
-                    {id:'i6', name:'Thermal Mylar Blankets', description:'Pack of 4 heavy-duty weather blankets', individual_price:9.99}
-                ]
-            }
-        ];
-    }
+                    // Fallback combos if database is empty
+                    if (this.bundles.length === 0) {
+                        this.bundles = [
+                            {
+                                id: 'b1',
+                                title: '7 Must Have Essentials',
+                                category: 'Emergency Preparedness Kits',
+                                tagline: 'Immediate 72-hour evacuation & survival basics.',
+                                bundle_price: 49.99,
+                                items: [
+                                    {id:'i1', name:'Trauma First Aid Kit', description:'Compact CE-certified field medical pouch', individual_price:15.00},
+                                    {id:'i2', name:'Collapsible Water Container', description:'10L BPA-free heavy-duty jerry can', individual_price:12.50}
+                                ]
+                            },
+                            {
+                                id: 'b2',
+                                title: '12 The Necessary Home Kit',
+                                category: 'Home Safety Kits',
+                                tagline: 'Robust shelter-in-place resilience for utility and power outages.',
+                                bundle_price: 99.99,
+                                items: [
+                                    {id:'i3', name:'Solar Power Bank 20000mAh', description:'Waterproof dual-USB rugged charger', individual_price:39.99},
+                                    {id:'i4', name:'Emergency Food Rations', description:'3600kcal long-life high energy bars', individual_price:8.50}
+                                ]
+                            },
+                            {
+                                id: 'b3',
+                                title: '19 I Am Ready Family Pack',
+                                category: 'Family Essentials',
+                                tagline: 'Comprehensive multi-week defense and household survival configuration.',
+                                bundle_price: 179.99,
+                                items: [
+                                    {id:'i5', name:'LED Rechargeable Headlamp', description:'Multi-mode hands-free head torch', individual_price:14.99},
+                                    {id:'i6', name:'Thermal Mylar Blankets', description:'Pack of 4 heavy-duty weather blankets', individual_price:9.99}
+                                ]
+                            }
+                        ];
+                    }
 
-    // 2. Fetch your 8 real Build Your Own Kit items from PostgreSQL
-    try {
-        const itemRes = await fetch('/api/v1/items');
-        if (itemRes.ok) {
-            const itemData = await itemRes.json();
-            if (Array.isArray(itemData) && itemData.length > 0) {
-                this.inventoryItems = itemData;
-            }
-        }
-    } catch (e) {
-        console.error('Failed to load BYOK items:', e);
-    }
+                    // 2. Fetch real Build Your Own Kit items from PostgreSQL
+                    try {
+                        const itemRes = await fetch('/api/v1/items');
+                        if (itemRes.ok) {
+                            const itemData = await itemRes.json();
+                            if (Array.isArray(itemData) && itemData.length > 0) {
+                                this.inventoryItems = itemData;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to load BYOK items:', e);
+                    }
 
-    // Fallback items only if /api/v1/items fails
-    if (this.inventoryItems.length === 0) {
-        this.inventoryItems = [
-            { id: 'i1', name: 'First Aid Kit', category: 'First Aid', description: 'Compact trauma & bandage kit', individual_price: 15.00 },
-            { id: 'i2', name: 'Water Container (10L)', category: 'Water & Hydration', description: 'Collapsible BPA-free jerry can', individual_price: 12.50 }
-        ];
-    }
+                    // Fallback items only if /api/v1/items fails
+                    if (this.inventoryItems.length === 0) {
+                        this.inventoryItems = [
+                            { id: 'i1', name: 'First Aid Kit', category: 'First Aid', description: 'Compact trauma & bandage kit', individual_price: 15.00 },
+                            { id: 'i2', name: 'Water Container (10L)', category: 'Water & Hydration', description: 'Collapsible BPA-free jerry can', individual_price: 12.50 }
+                        ];
+                    }
 
-    // 3. Fetch Amazon Products from PostgreSQL (if fetchAmazonProducts exists in your script)
-    if (typeof this.fetchAmazonProducts === 'function') {
-        await this.fetchAmazonProducts();
-    }
-},
+                    // 3. Fetch Amazon Products from PostgreSQL (if fetchAmazonProducts exists)
+                    if (typeof this.fetchAmazonProducts === 'function') {
+                        await this.fetchAmazonProducts();
+                    }
+                },
 
                 openBundleModal(bundle) {
                     this.selectedBundle = bundle;

@@ -15,9 +15,7 @@ var DB *pgxpool.Pool
 func InitDB() {
 	// Fallback to a default local connection string if DATABASE_URL is not set
 	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-	dbURL = "postgres://postgres:postgres@localhost:5432/beready?sslmode=disable"
-	}
+log.Printf("DEBUG: Connecting to database URL: %s", dbURL) // Add this line
 
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
