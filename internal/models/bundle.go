@@ -1,17 +1,16 @@
 package models
 
-import "time"
+//import "time"
 
 type Item struct {
-	ID                string    `json:"id"`
-	BundleID          string    `json:"bundle_id"`
-	Name              string    `json:"name"`
-	Description       string    `json:"description"`
-	IndividualPrice   float64   `json:"individual_price"`
-	ImageURL          string    `json:"image_url"`
-	AmazonSearchQuery string    `json:"amazon_search_query"`
-	CachedASIN        string    `json:"cached_asin"`
-	AsinUpdatedAt     time.Time `json:"asin_updated_at"`
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	Category          string  `json:"category"` // <-- Add this field
+	Description       string  `json:"description"`
+	IndividualPrice   float64 `json:"individual_price"`
+	ImageURL          string  `json:"image_url"`
+	AmazonSearchQuery string  `json:"amazon_search_query"`
+	CachedASIN        string  `json:"cached_asin"`
 }
 
 type Bundle struct {

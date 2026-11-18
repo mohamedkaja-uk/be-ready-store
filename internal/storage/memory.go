@@ -16,6 +16,37 @@ return []models.Bundle{}
 return bundles
 }
 
+// GetAllItems fetches all individual inventory items for the Build Your Own Kit section
+func GetAllItems() ([]models.Item, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT id, name, COALESCE(category, 'General Preparedness'), description, individual_price, COALESCE(image_url, ''), COALESCE(amazon_search_query, ''), COALESCE(cached_asin, '')
+		FROM items
+		ORDER BY category ASC, name ASC
+	`
+	rows, err := DB.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.Item
+	for rows.Next() {
+		var it models.Item
+		// Ensure these 8 scan variables match your models.Item struct fields exactly:
+		if err := rows.Scan(&it.ID, &it.Name, &it.Category, &it.Description, &it.IndividualPrice, &it.ImageURL, &it.AmazonSearchQuery, &it.CachedASIN); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	if items == nil {
+		items = []models.Item{}
+	}
+	return items, nil
+}
+
 func GetBundles() ([]models.Bundle, error) {
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 defer cancel()
@@ -97,7 +128,7 @@ defer rows.Close()
 var items []models.Item
 for rows.Next() {
 var it models.Item
-it.BundleID = bundleID
+//it.BundleID = bundleID
 if err := rows.Scan(
 &it.ID,
 &it.Name,

@@ -22,7 +22,7 @@ func main() {
 	{
 		v1.GET("/bundles", handlers.GetBundles)
 		v1.GET("/bundles/:id", handlers.GetBundleByID)
-
+		v1.GET("/items", handlers.ListItems)
 		v1.POST("/checkout", handlers.CreateCheckout)
 		v1.GET("/orders", handlers.GetOrders)
 		v1.POST("/checkout/amazon", handlers.CreateAmazonCheckout)
