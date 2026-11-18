@@ -170,44 +170,42 @@
     </main>
 
     <!-- ================= BUNDLE DETAILS MODAL ================= -->
-    <div x-show="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" x-transition.opacity>
-        <div @click.outside="modalOpen = false" class="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <span class="text-xs font-semibold px-3 py-1 bg-slate-100 text-slate-600 rounded-full" x-text="selectedBundle?.category"></span>
-                    <h3 class="text-2xl font-black text-slate-900 mt-2" x-text="selectedBundle?.title"></h3>
-                    <p class="text-sm text-slate-600 mt-1" x-text="selectedBundle?.tagline"></p>
-                </div>
-                <button @click="modalOpen = false" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
-            </div>
+    <!-- Bundle Details Modal -->
+    <div x-show="selectedBundle" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.outside="selectedBundle = null" class="bg-white rounded-3xl max-w-xl w-full p-8 shadow-2xl relative">
+            <button @click="selectedBundle = null" class="absolute top-6 right-6 text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
 
-            <div class="mb-6">
+            <span class="text-xs font-bold uppercase tracking-widest bg-blue-100 text-blue-800 px-3 py-1 rounded-full" x-text="selectedBundle?.category"></span>
+            <h3 class="text-2xl font-black text-slate-900 mt-3" x-text="selectedBundle?.title"></h3>
+            <p class="text-slate-600 text-sm mt-1" x-text="selectedBundle?.tagline"></p>
+
+            <div class="mt-6">
                 <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Included Kit Items</h4>
-                <div class="space-y-3">
+                <div class="space-y-3 max-h-64 overflow-y-auto pr-1">
                     <template x-for="item in selectedBundle?.items" :key="item.id">
                         <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <div>
-                                <p class="text-sm font-semibold text-slate-800" x-text="item.name"></p>
+                                <p class="font-bold text-sm text-slate-900" x-text="item.name"></p>
                                 <p class="text-xs text-slate-500" x-text="item.description"></p>
                             </div>
-                            <span class="text-xs font-bold text-slate-600">£<span x-text="item.individual_price.toFixed(2)"></span></span>
+                            <span class="font-bold text-sm text-amber-600">£<span x-text="item.individual_price.toFixed(2)"></span></span>
                         </div>
                     </template>
                 </div>
             </div>
 
-            <div class="pt-6 border-t border-slate-100 flex items-center justify-between">
+            <div class="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
                 <div>
                     <p class="text-xs text-slate-400">Total Price</p>
                     <p class="text-2xl font-black text-slate-900">£<span x-text="selectedBundle?.bundle_price.toFixed(2)"></span></p>
                 </div>
-                <button @click="addBundleToCart(selectedBundle); modalOpen = false;" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-8 py-3 rounded-xl text-sm transition shadow-sm">
+                <button @click="addBundleToCart(selectedBundle); selectedBundle = null" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-8 py-3 rounded-xl text-sm transition">
                     Add Combo to Cart
                 </button>
             </div>
         </div>
     </div>
-
+    
     <!-- ================= CART DRAWER ================= -->
     <div x-show="cartOpen" class="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-sm" x-transition.opacity>
         <div class="bg-white w-full max-w-md h-full p-6 flex flex-col justify-between shadow-2xl" x-transition>

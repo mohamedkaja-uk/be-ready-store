@@ -4,13 +4,15 @@ import (
 	"be-ready-store/internal/handlers"
 	"be-ready-store/internal/storage"
 	"os"
-
+        "log" // <-- Make sure log is imported
+	
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	// Initialize PostgreSQL Connection Pool
 	storage.InitDB()
+//storage.InitDB(db)
 
 	r := gin.Default()
 
@@ -34,4 +36,9 @@ func main() {
 		port = "8080"
 	}
 	r.Run(":" + port)
+
+dbURL := os.Getenv("DATABASE_URL")
+if dbURL == "" {
+    log.Fatal("DATABASE_URL environment variable is not set")
+}
 }
