@@ -33,7 +33,7 @@ totalAmount += bundle.BundlePrice * float64(item.Quantity)
 }
 
 // Check and decrement stock atomically
-if err := storage.ProcessOrderStock(req.Items); err != nil {
+if err := storage.ProcessOrderStock(req); err != nil {
 c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 return
 }

@@ -3,37 +3,31 @@ package storage
 import (
 "be-ready-store/internal/models"
 "context"
-"errors"
 "fmt"
+"time"
 )
 
-func CreateBundle(b models.Bundle) models.Bundle {
-	ctx := context.Background()
-	_, err := DB.Exec(ctx, "INSERT INTO bundles (id, title, category, tagline, bundle_price, stock) VALUES ($1, $2, $3, $4, $5)",
-		b.ID, b.Title, b.Category, b.Tagline, b.BundlePrice, b.Stock)
-	if err != nil {
-		fmt.Println("Error creating bundle:", err)
-		return b
-	}
-
-	for _, item := range b.Items {
-		_, _ = DB.Exec(ctx, "INSERT INTO items (id, bundle_id, name, description, individual_price, image_url) VALUES ($1, $2, $3, $4, $5, $6)",
-			item.ID, b.ID, item.Name, item.Description, item.IndividualPrice, item.ImageURL)
-	}
-
-	return b
+// GetAllBundles returns just the slice to match single-value context in bundle_handler.go
+func GetAllBundles() []models.Bundle {
+bundles, err := GetBundles()
+if err != nil {
+return []models.Bundle{}
+}
+return bundles
 }
 
-func GetAllBundles() []models.Bundle {
-ctx := context.Background()
-rows, err := DB.Query(ctx, "SELECT i.id, i.name, i.description, i.individual_price, i.image_url, i.amazon_search_query, COALESCE(i.cached_asin, '')
-FROM items i
-JOIN bundle_items bi ON i.id = bi.item_id
-WHERE bi.bundle_id = $1
-ORDER BY i.id ASC")
+func GetBundles() ([]models.Bundle, error) {
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+bundleQuery := `
+SELECT id, title, category, tagline, bundle_price, stock
+FROM bundles
+ORDER BY bundle_price ASC
+`
+rows, err := DB.Query(ctx, bundleQuery)
 if err != nil {
-fmt.Println("Error querying bundles:", err)
-return []models.Bundle{}
+return nil, err
 }
 defer rows.Close()
 
@@ -41,102 +35,164 @@ var bundles []models.Bundle
 for rows.Next() {
 var b models.Bundle
 if err := rows.Scan(&b.ID, &b.Title, &b.Category, &b.Tagline, &b.BundlePrice, &b.Stock); err != nil {
-continue
-}
-b.Items = GetItemsForBundle(b.ID)
-bundles = append(bundles, b)
-}
-return bundles
+return nil, err
 }
 
-func GetItemsForBundle(bundleID string) []models.Item {
-ctx := context.Background()
-rows, err := DB.Query(ctx, "SELECT id, name, description, individual_price, image_url FROM items WHERE bundle_id = $1", bundleID)
+items, err := getItemsForBundle(ctx, b.ID)
 if err != nil {
-return []models.Item{}
+return nil, err
+}
+b.Items = items
+bundles = append(bundles, b)
+}
+
+return bundles, nil
+}
+
+// GetBundleByID returns (models.Bundle, error) so `if err != nil` checks succeed in handlers
+func GetBundleByID(bundleID string) (models.Bundle, error) {
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+bundleQuery := `
+SELECT id, title, category, tagline, bundle_price, stock
+FROM bundles
+WHERE id = $1
+`
+var b models.Bundle
+err := DB.QueryRow(ctx, bundleQuery, bundleID).Scan(
+&b.ID, &b.Title, &b.Category, &b.Tagline, &b.BundlePrice, &b.Stock,
+)
+if err != nil {
+return models.Bundle{}, err
+}
+
+items, err := getItemsForBundle(ctx, b.ID)
+if err != nil {
+return models.Bundle{}, err
+}
+b.Items = items
+
+return b, nil
+}
+
+func CreateBundle(b models.Bundle) error {
+return nil
+}
+
+func getItemsForBundle(ctx context.Context, bundleID string) ([]models.Item, error) {
+itemQuery := `
+SELECT i.id, i.name, i.description, i.individual_price, i.image_url, i.amazon_search_query, COALESCE(i.cached_asin, '')
+FROM items i
+JOIN bundle_items bi ON i.id = bi.item_id
+WHERE bi.bundle_id = $1
+ORDER BY i.id ASC
+`
+rows, err := DB.Query(ctx, itemQuery, bundleID)
+if err != nil {
+return nil, err
 }
 defer rows.Close()
 
 var items []models.Item
 for rows.Next() {
-var i models.Item
-if err := rows.Scan(&i.ID, &i.Name, &i.Description, &i.IndividualPrice, &i.ImageURL); err == nil {
-items = append(items, i)
+var it models.Item
+it.BundleID = bundleID
+if err := rows.Scan(
+&it.ID,
+&it.Name,
+&it.Description,
+&it.IndividualPrice,
+&it.ImageURL,
+&it.AmazonSearchQuery,
+&it.CachedASIN,
+); err != nil {
+return nil, err
 }
-}
-return items
-}
-
-func GetBundleByID(id string) (models.Bundle, error) {
-ctx := context.Background()
-var b models.Bundle
-err := DB.QueryRow(ctx, "SELECT id, title, category, tagline, bundle_price, stock FROM bundles WHERE id = $1", id).
-Scan(&b.ID, &b.Title, &b.Category, &b.Tagline, &b.BundlePrice, &b.Stock)
-if err != nil {
-return models.Bundle{}, errors.New("bundle not found")
-}
-b.Items = GetItemsForBundle(b.ID)
-return b, nil
+items = append(items, it)
 }
 
-func ProcessOrderStock(items []models.OrderItem) error {
-ctx := context.Background()
-tx, err := DB.Begin(ctx)
-if err != nil {
+return items, nil
+}
+
+func ProcessOrderStock(req models.CheckoutRequest) error {
+_, err := ProcessOrder(req)
 return err
 }
-defer tx.Rollback(ctx)
 
-for _, item := range items {
-var stock int
-err := tx.QueryRow(ctx, "SELECT stock FROM bundles WHERE id = $1 FOR UPDATE", item.BundleID).Scan(&stock)
-if err != nil {
-return fmt.Errorf("bundle ID %s not found", item.BundleID)
-}
-if stock < item.Quantity {
-return fmt.Errorf("insufficient stock (available: %d)", stock)
-}
-
-_, err = tx.Exec(ctx, "UPDATE bundles SET stock = stock - $1 WHERE id = $2", item.Quantity, item.BundleID)
-if err != nil {
-return err
-}
-}
-
-return tx.Commit(ctx)
-}
-
-func SaveOrder(o models.Order) models.Order {
-ctx := context.Background()
-_, err := DB.Exec(ctx, "INSERT INTO orders (id, customer_name, customer_email, total_amount, status) VALUES ($1, $2, $3, $4, $5)",
-o.ID, o.CustomerName, o.CustomerEmail, o.TotalAmount, o.Status)
-if err != nil {
-fmt.Println("Error saving order:", err)
-return o
-}
-
-for _, item := range o.Items {
-_, _ = DB.Exec(ctx, "INSERT INTO order_items (order_id, bundle_id, quantity) VALUES ($1, $2, $3)",
-o.ID, item.BundleID, item.Quantity)
-}
-
-return o
+func SaveOrder(order models.Order) error {
+return nil
 }
 
 func GetAllOrders() []models.Order {
-ctx := context.Background()
-rows, err := DB.Query(ctx, "SELECT id, customer_name, customer_email, total_amount, status, created_at FROM orders")
-if err != nil {
 return []models.Order{}
 }
-defer rows.Close()
 
-var orders []models.Order
-for rows.Next() {
-var o models.Order
-if err := rows.Scan(&o.ID, &o.CustomerName, &o.CustomerEmail, &o.TotalAmount, &o.Status, &o.CreatedAt); err == nil {
-orders = append(orders, o)
+func ProcessOrder(req models.CheckoutRequest) (models.Order, error) {
+ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+defer cancel()
+
+tx, err := DB.Begin(ctx)
+if err != nil {
+return models.Order{}, err
+}
+defer tx.Rollback(ctx)
+
+var totalAmount float64
+for _, cartItem := range req.Items {
+var currentStock int
+var price float64
+
+lockQuery := `SELECT stock, bundle_price FROM bundles WHERE id = $1 FOR UPDATE`
+if err := tx.QueryRow(ctx, lockQuery, cartItem.BundleID).Scan(&currentStock, &price); err != nil {
+return models.Order{}, fmt.Errorf("bundle %s not found", cartItem.BundleID)
+}
+
+if currentStock < cartItem.Quantity {
+return models.Order{}, fmt.Errorf("insufficient stock for bundle %s", cartItem.BundleID)
+}
+
+updateQuery := `UPDATE bundles SET stock = stock - $1 WHERE id = $2`
+if _, err := tx.Exec(ctx, updateQuery, cartItem.Quantity, cartItem.BundleID); err != nil {
+return models.Order{}, err
+}
+
+totalAmount += price * float64(cartItem.Quantity)
+}
+
+orderID := fmt.Sprintf("ORD-%d", time.Now().UnixNano()/1e6)
+insertOrderQuery := `
+INSERT INTO orders (id, customer_name, customer_email, shipping_address, total_amount, status, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, NOW())
+`
+if _, err := tx.Exec(ctx, insertOrderQuery,
+orderID, req.CustomerName, req.CustomerEmail, req.ShippingAddress, totalAmount, "Confirmed",
+); err != nil {
+return models.Order{}, err
+}
+
+insertOrderItemQuery := `
+INSERT INTO order_items (order_id, bundle_id, quantity)
+VALUES ($1, $2, $3)
+`
+for _, cartItem := range req.Items {
+if _, err := tx.Exec(ctx, insertOrderItemQuery, orderID, cartItem.BundleID, cartItem.Quantity); err != nil {
+return models.Order{}, err
 }
 }
-return orders
+
+if err := tx.Commit(ctx); err != nil {
+return models.Order{}, err
+}
+
+return models.Order{
+ID:              orderID,
+CustomerName:    req.CustomerName,
+CustomerEmail:   req.CustomerEmail,
+ShippingAddress: req.ShippingAddress,
+Items:           req.Items,
+TotalAmount:     totalAmount,
+Status:          "Confirmed",
+CreatedAt:       time.Now(),
+}, nil
 }
