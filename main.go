@@ -25,6 +25,7 @@ func main() {
 
 		v1.POST("/checkout", handlers.CreateCheckout)
 		v1.GET("/orders", handlers.GetOrders)
+		v1.POST("/checkout/amazon", handlers.CreateAmazonCheckout)
 	}
 
 	// Use dynamic port for cloud deployment, fallback to 8080 locally

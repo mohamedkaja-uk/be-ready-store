@@ -26,7 +26,11 @@ func CreateBundle(b models.Bundle) models.Bundle {
 
 func GetAllBundles() []models.Bundle {
 ctx := context.Background()
-rows, err := DB.Query(ctx, "SELECT id, title, category, tagline, bundle_price, stock FROM bundles")
+rows, err := DB.Query(ctx, "SELECT i.id, i.name, i.description, i.individual_price, i.image_url, i.amazon_search_query, COALESCE(i.cached_asin, '')
+FROM items i
+JOIN bundle_items bi ON i.id = bi.item_id
+WHERE bi.bundle_id = $1
+ORDER BY i.id ASC")
 if err != nil {
 fmt.Println("Error querying bundles:", err)
 return []models.Bundle{}
