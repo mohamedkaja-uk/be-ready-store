@@ -48,36 +48,52 @@ func GetAllItems() ([]models.Item, error) {
 }
 
 func GetBundles() ([]models.Bundle, error) {
-ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-bundleQuery := `
-SELECT id, title, category, tagline, bundle_price, stock
-FROM bundles
-ORDER BY bundle_price ASC
-`
-rows, err := DB.Query(ctx, bundleQuery)
-if err != nil {
-return nil, err
-}
-defer rows.Close()
+	bundlesQuery := `
+		SELECT id, title, category, COALESCE(tagline, ''), bundle_price, stock, COALESCE(image_url, '')
+		FROM bundles
+		ORDER BY bundle_price ASC
+	`
+	rows, err := DB.Query(ctx, bundlesQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-var bundles []models.Bundle
-for rows.Next() {
-var b models.Bundle
-if err := rows.Scan(&b.ID, &b.Title, &b.Category, &b.Tagline, &b.BundlePrice, &b.Stock); err != nil {
-return nil, err
-}
+	var bundles []models.Bundle
+	for rows.Next() {
+		var b models.Bundle
+		if err := rows.Scan(&b.ID, &b.Title, &b.Category, &b.Tagline, &b.BundlePrice, &b.Stock, &b.ImageURL); err != nil {
+			return nil, err
+		}
 
-items, err := getItemsForBundle(ctx, b.ID)
-if err != nil {
-return nil, err
-}
-b.Items = items
-bundles = append(bundles, b)
-}
+		// Fetch linked items for this bundle
+		itemsQuery := `
+			SELECT i.id, i.name, COALESCE(i.category, ''), i.description, i.individual_price, COALESCE(i.image_url, '')
+			FROM items i
+			JOIN bundle_items bi ON i.id = bi.item_id
+			WHERE bi.bundle_id = $1
+		`
+		itemRows, err := DB.Query(ctx, itemsQuery, b.ID)
+		if err == nil {
+			var bItems []models.Item
+			for itemRows.Next() {
+				var it models.Item
+				itemRows.Scan(&it.ID, &it.Name, &it.Category, &it.Description, &it.IndividualPrice, &it.ImageURL)
+				bItems = append(bItems, it)
+			}
+			itemRows.Close()
+			b.Items = bItems
+		}
+		bundles = append(bundles, b)
+	}
 
-return bundles, nil
+	if bundles == nil {
+		bundles = []models.Bundle{}
+	}
+	return bundles, nil
 }
 
 // GetBundleByID returns (models.Bundle, error) so `if err != nil` checks succeed in handlers

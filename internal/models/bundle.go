@@ -20,5 +20,6 @@ type Bundle struct {
 	Tagline     string  `json:"tagline"`
 	BundlePrice float64 `json:"bundle_price"`
 	Stock       int     `json:"stock"`
+	ImageURL    string   `json:"image_url"`
 	Items       []Item  `json:"items"`
 }
